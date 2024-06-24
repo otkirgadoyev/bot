@@ -9,4 +9,5 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(File)
 class FileAdmin(admin.ModelAdmin):
-    list_display = ["id", "file"]
+    list_display = ["id", "file", "category"]
+    list_editable = ["category"]

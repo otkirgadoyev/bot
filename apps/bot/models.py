@@ -1,10 +1,10 @@
 from django.db import models
-
+from .choices import Category
 
 class User(models.Model):
     full_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Full name")
     phone_number = models.CharField(max_length=15, null=True, verbose_name="Phone number")
-    telegram_id = models.PositiveIntegerField(verbose_name="Telegram id", null=True)
+    telegram_id = models.CharField(max_length=15,verbose_name="Telegram id", null=True)
     active = models.BooleanField(default=False)
 
     def __str__(self):
@@ -17,7 +17,8 @@ class User(models.Model):
 
 
 class File(models.Model):
-    workshop_name = models.CharField(max_length=100, null=True)
+
+    category = models.CharField(max_length=100, null=True, choices=Category.choices)
     file = models.FileField(null=True, blank=True, verbose_name="File")
 
     def __str__(self):
