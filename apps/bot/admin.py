@@ -4,7 +4,7 @@ from .models import User, File
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ["id", "phone_number", "telegram_id", "full_name"]
+    list_display = ["id", "phone_number", "telegram_id", "full_name", "active"]
 
 
 @admin.register(File)

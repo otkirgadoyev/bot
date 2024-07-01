@@ -6,7 +6,6 @@ import logging
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.utils.callback_data import CallbackData
-from django.core.files.base import ContentFile
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -25,9 +24,12 @@ django.setup()
 # --------  < / DJANGO SETUP > --------
 from apps.bot.models import User, File
 from apps.bot.choices import Category
+
 dp.middleware.setup(LoggingMiddleware())
 
 callback_factory = CallbackData("doc", "id")
+
+data = {}
 
 
 @dp.message_handler(commands=['start'])
@@ -48,12 +50,12 @@ async def contact_received(message: types.Message):
     if created:
         await message.answer(
             text=(
-                f"Этот пользователь {message.from_user.full_name} {phone_number} В списке под номером {phone_number}! Дождитесь ответа администратора."),
+                f"Этот пользователь {message.from_user.full_name} В списке под номером {phone_number}! Дождитесь ответа администратора."),
             reply_markup=types.ReplyKeyboardRemove()
         )
 
     else:
-        if user.active == False:
+        if not user.active:
             await message.answer(
                 text=(
                     f"Этот {phone_number} номер зарегистрирован но не активен! Свяжитесь с администратором, чтобы активировать учетную запись."),
@@ -68,7 +70,7 @@ async def contact_received(message: types.Message):
             )
 
             await message.answer(
-                text=("Добро пожаловать в бот!"),
+                text="Добро пожаловать в бот!",
                 reply_markup=keyboard
             )
 
@@ -114,43 +116,14 @@ async def upload_file(message: types.Message):
 
 
 @dp.message_handler(
-    lambda message: message.text in ['юридический', 'бухгалтер', 'кадр', 'входящая исходящая почта',
-                                     "Назад", 'получение из юридических писем', 'получение из писем бухгалтера',
+    lambda message: message.text in ["Назад", 'получение из юридических писем', 'получение из писем бухгалтера',
                                      'вывод из кадра', 'получение из входящей исходящей почты', "*"],
     content_types=types.ContentType.TEXT, state="*")
-async def files(message: types.Message):
+async def choose_download_category(message: types.Message):
     telegram_id = message.from_user.id
     user = await asyncio.to_thread(User.objects.get, telegram_id=telegram_id)
     if user.active:
-        if message.text == "юридический":
-            mas = ("чтобы добавить юридический файл, отправьте файл боту."
-                   " Введите команду /home, чтобы перейти к началу бота")
-            await message.answer(
-                text=mas,
-                reply_markup=types.ReplyKeyboardRemove()
-            )
-        elif message.text == "бухгалтер":
-            mas = ("чтобы добавить бухгалтерский файл, отправьте файл боту."
-                   " Введите команду /home, чтобы перейти к началу бота")
-            await message.answer(
-                text=mas,
-                reply_markup=types.ReplyKeyboardRemove()
-            )
-        elif message.text == "кадр":
-            mas = ("чтобы добавить файл в файлы кадров, отправьте файл боту."
-                   " Введите команду /home, чтобы перейти к началу бота")
-            await message.answer(
-                text=mas,
-                reply_markup=types.ReplyKeyboardRemove()
-            )
-        elif message.text == "входящая исходящая почта":
-            mas = ("чтобы добавить файл в файлы входящей и исходящей почты, отправьте файл боту."
-                   " Введите команду /home, чтобы перейти к началу бота")
-            await message.answer(
-                text=mas,
-                reply_markup=types.ReplyKeyboardRemove()
-            )
-        elif message.text == 'получение из юридических писем':
+        if message.text == 'получение из юридических писем':
             files = await asyncio.to_thread(File.objects.filter, category=Category.yuridik)
             keyboard = InlineKeyboardMarkup()
             async for file in files:
@@ -204,6 +177,64 @@ async def files(message: types.Message):
         )
 
 
+@dp.message_handler(
+    lambda message: message.text in ['юридический', 'бухгалтер', 'кадр', 'входящая исходящая почта',
+                                     "Назад", "*"], content_types=types.ContentType.TEXT, state="*")
+async def choose_upload_category(message: types.Message):
+    telegram_id = message.from_user.id
+    user = await asyncio.to_thread(User.objects.get, telegram_id=telegram_id)
+    data[telegram_id] = {"step": None}
+    data[telegram_id] = {"category": None}
+    if user.active:
+        if message.text == "юридический":
+            data[telegram_id]["category"] = Category.yuridik
+            mas = ("чтобы добавить юридический файл, отправьте файл боту."
+                   " Введите команду /home, чтобы перейти к началу бота")
+            await message.answer(
+                text=mas,
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+        elif message.text == "бухгалтер":
+            data[telegram_id]["category"] = Category.buxgalter
+            mas = ("чтобы добавить бухгалтерский файл, отправьте файл боту."
+                   " Введите команду /home, чтобы перейти к началу бота")
+            await message.answer(
+                text=mas,
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+        elif message.text == "кадр":
+            data[telegram_id]["category"] = Category.kadr
+            mas = ("чтобы добавить файл в файлы кадров, отправьте файл боту."
+                   " Введите команду /home, чтобы перейти к началу бота")
+            await message.answer(
+                text=mas,
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+        elif message.text == "входящая исходящая почта":
+            data[telegram_id]["category"] = Category.pochta
+            mas = ("чтобы добавить файл в файлы входящей и исходящей почты, отправьте файл боту."
+                   " Введите команду /home, чтобы перейти к началу бота")
+            await message.answer(
+                text=mas,
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+        else:
+            keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+            keyboard.add(
+                types.InlineKeyboardButton(text="Загрузить файл"),
+                types.InlineKeyboardButton(text="Загрузка файла"),
+            )
+            await message.answer("Выберите категорию", reply_markup=keyboard)
+        data[telegram_id]["step"] = "upload"
+        print("dataaaaaaa", data)
+
+    else:
+        await message.answer(
+            text="Использование бота для вас не разрешено.",
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+
+
 async def save_file(document: types.Document):
     file_info = await document.bot.get_file(document.file_id)
     file_path = document.file_name
@@ -211,16 +242,26 @@ async def save_file(document: types.Document):
     return file_path
 
 
-@dp.message_handler(content_types=types.ContentType.DOCUMENT)
+@dp.message_handler(lambda message: data.get(message.from_user.id, {}).get('step') == 'upload',
+                    content_types=types.ContentType.DOCUMENT)
 async def download_file(message: types.Message):
+    telegram_id = message.from_user.id
     document = message.document
     file_path = await save_file(document)
-    print(message.text)
-    await asyncio.to_thread(File.objects.create, file=file_path)
-
+    category = data[telegram_id].get("category")
+    print("category", category)
+    print("data[telegram_id]", data[telegram_id])
+    await asyncio.to_thread(File.objects.create, file=file_path, category=category)
+    data.pop(telegram_id)
     await message.answer(
         text="Файл загружен"
     )
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    keyboard.add(
+        types.InlineKeyboardButton(text="Загрузить файл"),
+        types.InlineKeyboardButton(text="Загрузка файла"),
+    )
+    await message.answer("Выберите категорию", reply_markup=keyboard)
 
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('doc_'))
